@@ -1,0 +1,1 @@
+/usr/home/maff/.oh-my-zsh/custom/directories.zsh
