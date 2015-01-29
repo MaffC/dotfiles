@@ -1,1 +1,176 @@
-/usr/home/maff/.zshrc
+#locale and base environment
+export LANG="en_GB.UTF-8"
+export LC_ALL='en_GB.UTF-8'
+export LC_CTYPE="C"
+export TZ="Europe/London"
+export EDITOR="vim"
+export PAGER="less -R"
+export PERL5LIB="$HOME/lib/perl"
+
+alias grep='grep --color=auto'
+alias fgrep='fgrep --color=auto'
+alias egrep='egrep --color=auto'
+alias attach='tmux -2 new -As 0'
+alias mtrace='mtr --report -c 1'
+alias lft='lft -SNp'
+alias pview='/home/maff/bin/pycturetube -gi'
+alias nifls='ifls|grep -v "no addrs"'
+
+#Platform-specific
+PLATFORM=`uname -s`
+OS_LINUX=0
+OS_FBSD=0
+OS_OSX=0
+#TODO: bootstrap `brew` on darwin when it isn't installed
+case $PLATFORM in
+	Linux)
+		alias ls='ls --color=auto'
+		OS_LINUX=1
+		;;
+	FreeBSD)
+		alias ls='ls -G'
+		alias strace='echo use truss instead, strace is linux-only'
+		alias pfreload='pfctl -q -f /etc/pf.conf'
+		alias whatis='PAGER=more whatis'
+		alias apropos='PAGER=more apropos'
+		alias freebsd-update='PAGER=more freebsd-update'
+		alias portmaster='portmaster --packages-build -d'
+		alias reset='reset -e '
+		OS_FBSD=1
+		;;
+	Darwin)
+		alias ls='ls -G'
+		PATH="$HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
+		OS_OSX=1
+		;;
+	*)
+		echo "no shell autosetup for you, mister who knows what you're running"
+esac
+case $SHELL in
+	*/zsh)
+		export ZSH=$HOME/.oh-my-zsh
+		export ZSH_THEME="dieter-maff"
+		plugins=(zsh-syntax-highlighting)
+		source ~/.zshcols
+		source $ZSH/oh-my-zsh.sh
+		setopt nohup
+		zstyle ':completion:*:descriptions' format '%U%B%d%b%u'
+		zstyle ':completion:*:warnings' format '%BSorry, no matches for: %d%b'
+		zstyle ':completion:*' completer _expand _complete _ignored _correct _approximate
+		zstyle ':completion:*' matcher-list '' '' '' ''
+		autoload -Uz compinit
+		compinit
+		bindkey -e
+		HISTFILE=~/.histfile
+		HISTSIZE=102400
+		SAVEHIST=102400
+		setopt appendhistory notify extended_glob autocd correctall
+		unsetopt beep nomatch
+		PS2="(%_%) > "
+		PS3="(select%)> "
+		PS4='(trace $0:$LINENO%)> '
+		;;
+	*/bash)
+		#TODO
+		;;
+	*/ash)
+		export PATH='/usr/bin:/usr/sbin:/bin:/sbin:/usr/local/bin'
+		export HOME=$(grep -e "^${USER:-root}:" /etc/passwd | cut -d ":" -f 6)
+		export HOME=${HOME:-/root}
+		export PS1='\u@\h:\w\$ '
+		[ -x /bin/more ] || alias more=less
+		[ -x /usr/bin/vim ] && alias vi=vim || alias vim=vi
+		[ -z "$KSH_VERSION" -o \! -s /etc/mkshrc ] || . /etc/mkshrc
+		[ -x /usr/bin/arp ] || arp() { cat /proc/net/arp; }
+		[ -x /usr/bin/ldd ] || ldd() { LD_TRACE_LOADED_OBJECTS=1 $*; }
+		__OPKGUPDATES="$(opkg list-upgradable)"
+		[ ! -z "$__OPKGUPDATES" ] && echo "package updates available:" && echo "$__OPKGUPDATES"
+		;;
+	*)
+		echo "no shell autosetup for you, mister who knows what you're running"
+esac
+
+#Shell functions that I don't feel merit their own script or am too lazy to split off
+[ $OS_OSX -eq 1 ]&&ksync () {
+	rsync="/usr/bin/rsync"
+	opts="-Phavur"
+	host="maff.scot"
+	remote="/home/maff/.drops"
+	_local="/Users/maff/Public/Received"
+	$rsync $opts "$host:$remote/*" $_local
+}
+[ $OS_FBSD -eq 1 ]&&vipf () {
+	vim /etc/pf.conf
+	pfctl -q -f /etc/pf.conf
+	if [ $? -ne 0 ]; then
+		echo "seems pf configuration didn't load. hit any key to reopen pf.conf for editing or ^c to bail out."
+		read && vipf
+	else echo "pf configuration loaded."
+	fi
+}
+# still in dev
+[ $OS_FBSD -eq 1 ]&&pkgupdate () {
+	portsnap fetch update >/dev/null
+	PORTM_OUT=$(portmaster -L|tail -n1|grep "There are no new versions available"|wc -l|tr -d " ")
+	if [ $PORTM_OUT -eq 1 ]; then
+		echo "No updates available"
+	else
+		portmaster -a
+	fi
+}
+hgcommit () {
+	hg addremove -s 90
+	hg commit -m "$@"
+	hg push ssh://hg@bitbucket.org/MaffC/script-collection
+	cd ../git_script-collection
+	git pull hg master
+	git push
+	cd -
+}
+services () {
+	if [ "$(echo $1|egrep -v '[a-zA-Z]')" == "$1" ]; then
+		GREPOUT="$(egrep -i "\s$1/(tcp|udp)" /etc/services)"
+		if [ $? -ne 0 ]; then
+			GREPOUT="$(egrep -i "\s$1/[a-z]+" /etc/services)"
+		fi
+	else
+		GREPOUT="$(egrep -i "^\s?$1\s.*/(tcp|udp)" /etc/services)"
+		if [ $? -ne 0 ]; then
+			GREPOUT="$(egrep -i "^\s?$1\s" /etc/services)"
+		fi
+	fi
+	if [ "$GREPOUT" == "" ]; then
+		echo "No services entries found for $1"
+		return
+	fi
+	PREOUT="The following ports were found for $1"
+	if [ "$(echo $1|egrep -v '[a-zA-Z]')" == "$1" ]; then
+		PREOUT="The following services were found for $1"
+	fi
+	TOOUT="$PREOUT:"
+	WHILEOUT="$(echo $GREPOUT|while read -r service
+		do
+			if [ "$(echo $1|egrep -v '[a-zA-Z]')" == "$1" ]; then
+				THISOUT="$(echo $service|awk '{print $1}')/$(echo $service|awk '{print $2}'|sed 's/.*\///g')"
+			else
+				THISOUT="$(echo $service|awk '{print $2}')"
+				if [ "$(echo $service|grep "#")" != "" ]; then
+					THISOUT="$THISOUT ($(echo $service|sed 's/.*# *//'))"
+				fi
+			fi
+			THISOUT="$THISOUT, "
+			echo -n $THISOUT
+		done)"
+	SEDOUT="$(echo $WHILEOUT|sed 's/,.$//')"
+	TOOUT="$TOOUT $SEDOUT"
+	echo $TOOUT
+}
+[ "`which wn`" == "" ]||define () {
+	WNTERM="$@"
+	OUT="$(wn $WNTERM -over)"
+	if [ -z "$OUT" ]; then
+		echo "$WNTERM: nothing appropriate"
+		return 1
+	fi
+	echo "$OUT"
+}

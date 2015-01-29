@@ -1,1 +1,98 @@
-/usr/home/maff/.muttrc
+#Set up maildir stuff
+set mbox_type=Maildir
+set folder="/var/mail/maff""
+set spoolfile="/var/mail/maff"
+set record="/var/mail/maff/.Sent"
+set postponed="/var/mail/maff/.Drafts"
+set copy=yes
+set delete=yes
+#Sort out the file/folder mask in mutt
+set mask="^\\..."
+
+#Message view stuff
+set sort=threads
+set sort_aux=reverse-date-received
+set strict_threads
+set thread_received
+auto_view text/html
+set beep
+set beep_new
+#Hide autoview tag
+#set display_filter="sed '/^^[.*^G\\[-- .* --]$/d'"
+#Show the pager index while in message view
+set pager_index_lines=9
+
+#Message composition stuff
+set editor = 'vim -c "set spell spelllang=en_gb"'
+set fast_reply
+
+#Forwarding
+set mime_forward=yes
+set mime_forward_rest=yes
+set mime_forward signature=''
+
+#Define which headers to not ignore
+ignore *
+unignore subject to from date cc X-Spam-Status organization organisation x-mailer: x-newsreader: x-mailing-list: posted-to: resent-from reply-to
+
+#Formatting
+#set index_format="%4C %Z %[!%d.%m.%y] %-15.15F (%?M?C%3M&%4l?) %s"
+set index_format="%4C %Z %[!%d.%m.%y] %-20.20F %s"
+set pager_format="-%Z- %C/%m [%[%H:%M]] %-17.17n   %s"
+set folder_format="%2C %t %N %8s %d %f"
+set status_format="-%r--[%?M?%M/?%m msgs%?n?, %n new?%?d?, %d del?%?F?, %F flag?%?t?, %t tag?%?p?, %p postp?%?b?, %b inc?%?l?, %l?]--(%f)--%s-%>-%P-"
+
+#Set folder hooks, also set certain gmail keybindings I can't live without
+#Navigation keybindings
+macro index,pager gi "<change-folder>=<enter>"
+macro index,pager ga "<change-folder>=.Archive<enter>"
+macro index,pager gs "<change-folder>=.Sent<enter>"
+macro index,pager gl "<change-folder>?"
+#Message manipulation hooks
+macro index,pager e "<save-message>=.Archive<enter><enter>"
+macro index,pager ! "<save-message>=.Spam<enter><enter>"
+#Other
+bind index,pager c mail
+bind index,pager s flag-message
+#folder-hook '=.Archive' set sort=reverse-date
+#folder-hook . 'macro index e "<save-message>=.Archive<enter><sync-mailbox>"'
+#folder-hook . 'macro pager e "<save-message>=.Archive<enter><sync-mailbox>"'
+#folder-hook . 'macro index d "<save-message>=.Deleted<enter>"'
+#folder-hook . 'macro pager d "<save-message>=.Deleted<enter>"'
+
+#Forwarding
+set forward_format="Fw: %s"
+
+#Make mutt's navigation a little more sane
+bind pager <Down>	next-line
+bind pager <Up>		previous-line
+set pager_stop = yes
+
+#Other stuff
+set resolve=yes
+set hidden_host=yes
+set help=no
+set metoo=no
+set mask=
+
+#Set up personal stuff
+#set hostname = 'maff.me.uk'
+#Mutt seems to fuck this up and assume that my email address is "maff@me.uk" which is bad, so we just disable the from field altogether since postfix handles this anyway
+set nouse_domain
+set realname = 'Matthew Connelly'
+#Signature file
+set signature="~/.mailsig"
+set sig_dashes=yes
+set sig_on_top=yes
+
+#Colour scheme
+#Regex colouring for more easily identifying urls and email addresses
+color body cyan default "((ftp|http|https)://|news:)[^ >)\"\t]+"    # URLs
+color body brightmagenta default "[-a-z_0-9.+]+@[-a-z_0-9.]+"                # emails
+#Colours
+# Colors for items in the reader
+#color header brightmagenta			default "^(From|Subject):"
+#color header brightyellow			default ^To:
+#color header brightyellow			default ^Cc:
+#mono  header bold					"^(From|Subject):"
+source ~/.muttrc.colours

@@ -1,1 +1,1 @@
-/usr/home/maff/.mailcap
+text/html; perl ~/bin/mailview.pl; copiousoutput
